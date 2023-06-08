@@ -27,7 +27,7 @@ classifier.predict(X_test)
 Comments:
 
 - The class label shouldn't be one hot encoded.
-- Prediciton is made in one hot format.
+- Predicitons are made in one hot format.
 - Weights and bias should be specified in a list as follows:
   - weights: [array([[ 0.03273557,  0.02457152, -0.02957698, -0.02303797, -0.06907668],
          [-0.08002465,  0.03324651, -0.0635965 ,  0.06544793, -0.01471366]]), 
