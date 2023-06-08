@@ -16,6 +16,7 @@ Features:
 - Possible to resume the training process
 
 Example:
+
 classifier = MLP(X=X_train, y=y_train, hidden_layer_sizes=[10,10], activation="tanh",
                   activation_output="softmax", learning_rate=0.0005, epochs=1500, random_w_min = -5, random_w_max = 5,
                   print_evey_n_epoch=100, optimizer="adam", beta1_adam=0.9, beta2_adam=0.999, epsilon=1e-8, batch_size=32)
