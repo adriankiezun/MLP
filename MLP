@@ -99,7 +99,7 @@ class MLP:
         if self.activation_output == "linear":
             return np.sum(np.square(y - ypred)) / y.shape[0]
         if self.activation_output == "softmax":
-            return np.mean(np.array([-np.sum(y*np.log(ypred))])).round(4)
+            return np.sum(np.array([-np.sum(y*np.log(ypred))])).round(4)
         
     def loss_function_derivative(self, y, ypred):
         if self.activation_output == "sigmoid":
@@ -115,7 +115,7 @@ class MLP:
         if self.activation_output == "sigmoid":
             return str(np.array([-np.sum(y*np.log(ypred))]))[2:-2]
         if self.activation_output == "softmax":
-            return np.mean(np.array([-np.sum(y*np.log(ypred))])).round(4)
+            return np.sum(np.array([-np.sum(y*np.log(ypred))])).round(4)
         
     def OneHot(self, y):
         n = y.iloc[:,0].max() + 1
