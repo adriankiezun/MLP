@@ -25,8 +25,8 @@ class MLP:
         self.activation_output = cp.deepcopy(activation_output)
         self.random_w_min = random_w_min
         self.random_w_max = random_w_max
-        self.cv_X = cp.deepcopy(cv_X)
-        self.cv_y = cp.deepcopy(cv_y)
+        self.cv_X = cp.deepcopy(pd.DataFrame(cv_X))
+        self.cv_y = cp.deepcopy(pd.DataFrame(cv_y))
         self.random_w_bool = False
         self.declared_weights = cp.deepcopy(weights)
         self.declared_bias = cp.deepcopy(bias)
