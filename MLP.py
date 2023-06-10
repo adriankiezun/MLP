@@ -231,26 +231,29 @@ class MLP:
                         adam_v_b_hat = self.adam_v_b[k] / (1 - self.beta2_adam ** self.t)
                         self.weights[k] += self.learning_rate * adam_m_w_hat / (np.sqrt(adam_v_w_hat) + self.epsilon)
                         self.bias[k] += self.learning_rate * adam_m_b_hat / (np.sqrt(adam_v_b_hat) + self.epsilon)
-                if self.min_cost_function_train is None or self.min_cost_function_train > self.loss_function(self.y, self.predict(self.X)):
-                    self.min_cost_function_train = self.loss_function(self.y, self.predict(self.X))
-                if self.cv_X is not None and (self.min_cost_function_val is None or self.min_cost_function_val > self.loss_function(self.y, self.predict(self.X))):
-                    self.min_cost_function_val = self.loss_function(self.cv_y, self.predict(self.cv_X))
+                loss_train = self.loss_function(self.y, self.predict(self.X))
+                if self.cv_X is not None:
+                    loss_val = self.loss_function(self.cv_y, self.predict(self.cv_X))
+                if self.min_cost_function_train is None or self.min_cost_function_train > loss_train:
+                    self.min_cost_function_train = loss_train
+                if self.cv_X is not None and (self.min_cost_function_val is None or self.min_cost_function_val > loss_val):
+                    self.min_cost_function_val = loss_val
                 if self.cost_function_value is not None:
-                    if self.cost_function_value > self.loss_function(self.y, self.predict(self.X)):
-                        self.cost_function_value = self.loss_function(self.y, self.predict(self.X))
+                    if self.cost_function_value > loss_train:
+                        self.cost_function_value = loss_train
                         self.best_weights = cp.deepcopy(self.weights)
                         self.best_bias = cp.deepcopy(self.bias)
                 if (i+1) % self.print_evey_n_epoch == 0 or i == 0:
                     if self.cv_X is None:
                         if self.activation_output == "linear":
-                            print(f"=== Epoch: {i + 1:^7} === Train MSE: {self.loss_function_print(self.y, self.predict(self.X)):^14} === Min: {self.min_cost_function_train:^14}")
+                            print(f"=== Epoch: {i + 1:^7} === Train MSE: {loss_train:^14} === Min: {self.min_cost_function_train:^14}")
                         else:
-                            print(f"=== Epoch: {i + 1:^7} === Train CrossEntropy: {self.loss_function_print(self.y, self.predict(self.X)):^14} === Min: {self.min_cost_function_train:^14}")
+                            print(f"=== Epoch: {i + 1:^7} === Train CrossEntropy: {loss_train:^14} === Min: {self.min_cost_function_train:^14}")
                     else:
                         if self.activation_output == "linear":
-                            print(f"=== Epoch: {i + 1:^7} === Train MSE: {self.loss_function_print(self.y, self.predict(self.X)):^14} === Min: {self.min_cost_function_train:^14} === Val MSE: {self.loss_function_print(self.cv_y, self.predict(self.cv_X)):^14} === Min: {self.min_cost_function_val:^14} ===")
+                            print(f"=== Epoch: {i + 1:^7} === Train MSE: {loss_train:^14} === Min: {self.min_cost_function_train:^14} === Val MSE: {loss_val:^14} === Min: {self.min_cost_function_val:^14} ===")
                         else:
-                            print(f"=== Epoch: {i + 1:^7} === Train CrossEntropy: {self.loss_function_print(self.y, self.predict(self.X)):^14} === Min: {self.min_cost_function_train:^14} === Val CrossEntropy: {self.loss_function_print(self.cv_y, self.predict(self.cv_X)):^14} === Min: {self.min_cost_function_val:^14} ===")
+                            print(f"=== Epoch: {i + 1:^7} === Train CrossEntropy: {loss_train:^14} === Min: {self.min_cost_function_train:^14} === Val CrossEntropy: {loss_val:^14} === Min: {self.min_cost_function_val:^14} ===")
             else:
                 if i == 0:
                     self.X = self.X.sample(frac=1, random_state=self.random_state)
@@ -292,26 +295,29 @@ class MLP:
                             adam_v_b_hat = self.adam_v_b[k] / (1 - self.beta2_adam ** self.t)
                             self.weights[k] += self.learning_rate * adam_m_w_hat / (np.sqrt(adam_v_w_hat) + self.epsilon)
                             self.bias[k] += self.learning_rate * adam_m_b_hat / (np.sqrt(adam_v_b_hat) + self.epsilon)
-                if self.min_cost_function_train is None or self.min_cost_function_train > self.loss_function(self.y, self.predict(self.X)):
-                    self.min_cost_function_train = self.loss_function(self.y, self.predict(self.X))
-                if self.cv_X is not None and (self.min_cost_function_val is None or self.min_cost_function_val > self.loss_function(self.y, self.predict(self.X))):
-                    self.min_cost_function_val = self.loss_function(self.cv_y, self.predict(self.cv_X))
+                loss_train = self.loss_function(self.y, self.predict(self.X))
+                if self.cv_X is not None:
+                    loss_val = self.loss_function(self.cv_y, self.predict(self.cv_X))
+                if self.min_cost_function_train is None or self.min_cost_function_train > loss_train:
+                    self.min_cost_function_train = loss_train
+                if self.cv_X is not None and (self.min_cost_function_val is None or self.min_cost_function_val > loss_val):
+                    self.min_cost_function_val = loss_val
                 if self.cost_function_value is not None:
-                    if self.cost_function_value > self.loss_function(self.y, self.predict(self.X)):
-                        self.cost_function_value = self.loss_function(self.y, self.predict(self.X))
+                    if self.cost_function_value > loss_train:
+                        self.cost_function_value = loss_train
                         self.best_weights = cp.deepcopy(self.weights)
                         self.best_bias = cp.deepcopy(self.bias)
-                if ((i+1) % self.print_evey_n_epoch == 0 or i == 0) and n == (number_of_batches - 1):
+                if (i+1) % self.print_evey_n_epoch == 0 or i == 0:
                     if self.cv_X is None:
                         if self.activation_output == "linear":
-                            print(f"=== Epoch: {i + 1:^7} === Train MSE: {self.loss_function_print(self.y, self.predict(self.X)):^14} Min: {self.min_cost_function_train:^14}")
+                            print(f"=== Epoch: {i + 1:^7} === Train MSE: {loss_train:^14} === Min: {self.min_cost_function_train:^14}")
                         else:
-                            print(f"=== Epoch: {i + 1:^7} === Train CrossEntropy: {self.loss_function_print(self.y, self.predict(self.X)):^14} Min: {self.min_cost_function_train:^14}")
+                            print(f"=== Epoch: {i + 1:^7} === Train CrossEntropy: {loss_train:^14} === Min: {self.min_cost_function_train:^14}")
                     else:
                         if self.activation_output == "linear":
-                            print(f"=== Epoch: {i + 1:^7} === Train MSE: {self.loss_function_print(self.y, self.predict(self.X)):^14} Min: {self.min_cost_function_train:^14} === Val MSE: {self.loss_function_print(self.cv_y, self.predict(self.cv_X)):^14} Min: {self.min_cost_function_val:^14} ===")
+                            print(f"=== Epoch: {i + 1:^7} === Train MSE: {loss_train:^14} === Min: {self.min_cost_function_train:^14} === Val MSE: {loss_val:^14} === Min: {self.min_cost_function_val:^14} ===")
                         else:
-                            print(f"=== Epoch: {i + 1:^7} === Train CrossEntropy: {self.loss_function_print(self.y, self.predict(self.X)):^14} Min: {self.min_cost_function_train:^14} === Val CrossEntropy: {self.loss_function_print(self.cv_y, self.predict(self.cv_X)):^14} Min: {self.min_cost_function_val:^14} ===")
+                            print(f"=== Epoch: {i + 1:^7} === Train CrossEntropy: {loss_train:^14} === Min: {self.min_cost_function_train:^14} === Val CrossEntropy: {loss_val:^14} === Min: {self.min_cost_function_val:^14} ===")
     
     def continue_fit(self, epochs):
         for i in range(epochs):
@@ -350,26 +356,29 @@ class MLP:
                         adam_v_b_hat = self.adam_v_b[k] / (1 - self.beta2_adam ** self.t)
                         self.weights[k] += self.learning_rate * adam_m_w_hat / (np.sqrt(adam_v_w_hat) + self.epsilon)
                         self.bias[k] += self.learning_rate * adam_m_b_hat / (np.sqrt(adam_v_b_hat) + self.epsilon)
-                if self.min_cost_function_train is None or self.min_cost_function_train > self.loss_function(self.y, self.predict(self.X)):
-                    self.min_cost_function_train = self.loss_function(self.y, self.predict(self.X))
-                if self.cv_X is not None and (self.min_cost_function_val is None or self.min_cost_function_val > self.loss_function(self.y, self.predict(self.X))):
-                    self.min_cost_function_val = self.loss_function(self.cv_y, self.predict(self.cv_X))
+                loss_train = self.loss_function(self.y, self.predict(self.X))
+                if self.cv_X is not None:
+                    loss_val = self.loss_function(self.cv_y, self.predict(self.cv_X))
+                if self.min_cost_function_train is None or self.min_cost_function_train > loss_train:
+                    self.min_cost_function_train = loss_train
+                if self.cv_X is not None and (self.min_cost_function_val is None or self.min_cost_function_val > loss_val):
+                    self.min_cost_function_val = loss_val
                 if self.cost_function_value is not None:
-                    if self.cost_function_value > self.loss_function(self.y, self.predict(self.X)):
-                        self.cost_function_value = self.loss_function(self.y, self.predict(self.X))
+                    if self.cost_function_value > loss_train:
+                        self.cost_function_value = loss_train
                         self.best_weights = cp.deepcopy(self.weights)
                         self.best_bias = cp.deepcopy(self.bias)
                 if (i+1) % self.print_evey_n_epoch == 0 or i == 0:
                     if self.cv_X is None:
                         if self.activation_output == "linear":
-                            print(f"=== Epoch: {i + 1:^7} === Train MSE: {self.loss_function_print(self.y, self.predict(self.X)):^14} Min: {self.min_cost_function_train:^14}")
+                            print(f"=== Epoch: {i + 1:^7} === Train MSE: {loss_train:^14} === Min: {self.min_cost_function_train:^14}")
                         else:
-                            print(f"=== Epoch: {i + 1:^7} === Train CrossEntropy: {self.loss_function_print(self.y, self.predict(self.X)):^14} Min: {self.min_cost_function_train:^14}")
+                            print(f"=== Epoch: {i + 1:^7} === Train CrossEntropy: {loss_train:^14} === Min: {self.min_cost_function_train:^14}")
                     else:
                         if self.activation_output == "linear":
-                            print(f"=== Epoch: {i + 1:^7} === Train MSE: {self.loss_function_print(self.y, self.predict(self.X)):^14} Min: {self.min_cost_function_train:^14} === Val MSE: {self.loss_function_print(self.cv_y, self.predict(self.cv_X)):^14} Min: {self.min_cost_function_val:^14} ===")
+                            print(f"=== Epoch: {i + 1:^7} === Train MSE: {loss_train:^14} === Min: {self.min_cost_function_train:^14} === Val MSE: {loss_val:^14} === Min: {self.min_cost_function_val:^14} ===")
                         else:
-                            print(f"=== Epoch: {i + 1:^7} === Train CrossEntropy: {self.loss_function_print(self.y, self.predict(self.X)):^14} Min: {self.min_cost_function_train:^14} === Val CrossEntropy: {self.loss_function_print(self.cv_y, self.predict(self.cv_X)):^14} Min: {self.min_cost_function_val:^14} ===")
+                            print(f"=== Epoch: {i + 1:^7} === Train CrossEntropy: {loss_train:^14} === Min: {self.min_cost_function_train:^14} === Val CrossEntropy: {loss_val:^14} === Min: {self.min_cost_function_val:^14} ===")
             else:
                 if i == 0:
                     self.X = self.X.sample(frac=1, random_state=self.random_state)
@@ -411,26 +420,29 @@ class MLP:
                             adam_v_b_hat = self.adam_v_b[k] / (1 - self.beta2_adam ** self.t)
                             self.weights[k] += self.learning_rate * adam_m_w_hat / (np.sqrt(adam_v_w_hat) + self.epsilon)
                             self.bias[k] += self.learning_rate * adam_m_b_hat / (np.sqrt(adam_v_b_hat) + self.epsilon)
-                if self.min_cost_function_train is None or self.min_cost_function_train > self.loss_function(self.y, self.predict(self.X)):
-                    self.min_cost_function_train = self.loss_function(self.y, self.predict(self.X))
-                if self.cv_X is not None and (self.min_cost_function_val is None or self.min_cost_function_val > self.loss_function(self.y, self.predict(self.X))):
-                    self.min_cost_function_val = self.loss_function(self.cv_y, self.predict(self.cv_X))
+                loss_train = self.loss_function(self.y, self.predict(self.X))
+                if self.cv_X is not None:
+                    loss_val = self.loss_function(self.cv_y, self.predict(self.cv_X))
+                if self.min_cost_function_train is None or self.min_cost_function_train > loss_train:
+                    self.min_cost_function_train = loss_train
+                if self.cv_X is not None and (self.min_cost_function_val is None or self.min_cost_function_val > loss_val):
+                    self.min_cost_function_val = loss_val
                 if self.cost_function_value is not None:
-                    if self.cost_function_value > self.loss_function(self.y, self.predict(self.X)):
-                        self.cost_function_value = self.loss_function(self.y, self.predict(self.X))
+                    if self.cost_function_value > loss_train:
+                        self.cost_function_value = loss_train
                         self.best_weights = cp.deepcopy(self.weights)
                         self.best_bias = cp.deepcopy(self.bias)
-                if ((i+1) % self.print_evey_n_epoch == 0 or i == 0) and n == (number_of_batches - 1):
+                if (i+1) % self.print_evey_n_epoch == 0 or i == 0:
                     if self.cv_X is None:
                         if self.activation_output == "linear":
-                            print(f"=== Epoch: {i + 1:^7} === Train MSE: {self.loss_function_print(self.y, self.predict(self.X)):^14} Min: {self.min_cost_function_train:^14}")
+                            print(f"=== Epoch: {i + 1:^7} === Train MSE: {loss_train:^14} === Min: {self.min_cost_function_train:^14}")
                         else:
-                            print(f"=== Epoch: {i + 1:^7} === Train CrossEntropy: {self.loss_function_print(self.y, self.predict(self.X)):^14} Min: {self.min_cost_function_train:^14}")
+                            print(f"=== Epoch: {i + 1:^7} === Train CrossEntropy: {loss_train:^14} === Min: {self.min_cost_function_train:^14}")
                     else:
                         if self.activation_output == "linear":
-                            print(f"=== Epoch: {i + 1:^7} === Train MSE: {self.loss_function_print(self.y, self.predict(self.X)):^14} Min: {self.min_cost_function_train:^14} === Val MSE: {self.loss_function_print(self.cv_y, self.predict(self.cv_X)):^14} Min: {self.min_cost_function_val:^14} ===")
+                            print(f"=== Epoch: {i + 1:^7} === Train MSE: {loss_train:^14} === Min: {self.min_cost_function_train:^14} === Val MSE: {loss_val:^14} === Min: {self.min_cost_function_val:^14} ===")
                         else:
-                            print(f"=== Epoch: {i + 1:^7} === Train CrossEntropy: {self.loss_function_print(self.y, self.predict(self.X)):^14} Min: {self.min_cost_function_train:^14} === Val CrossEntropy: {self.loss_function_print(self.cv_y, self.predict(self.cv_X)):^14} Min: {self.min_cost_function_val:^14} ===")
+                            print(f"=== Epoch: {i + 1:^7} === Train CrossEntropy: {loss_train:^14} === Min: {self.min_cost_function_train:^14} === Val CrossEntropy: {loss_val:^14} === Min: {self.min_cost_function_val:^14} ===")
 
 
     def predict(self, X):
@@ -486,4 +498,6 @@ class MLP:
                              "random_w_max": self.random_w_max,
                              "initial_weights": self.initial_weights()[0],
                              "initial_bias": self.initial_weights()[1]}
+    
+
     
