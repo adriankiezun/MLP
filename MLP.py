@@ -426,3 +426,5 @@ class MLP:
                              "initial_weights": self.initial_weights()[0],
                              "initial_bias": self.initial_weights()[1]}
     
+
+    
