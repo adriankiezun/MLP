@@ -3,6 +3,7 @@ import numpy as np
 import copy as cp
 import warnings
 warnings.filterwarnings('ignore')
+from sklearn.metrics import accuracy_score, f1_score
 
 class MLP:
 
@@ -97,7 +98,9 @@ class MLP:
         if self.activation_output == "sigmoid":
             return -np.sum(y*np.log(ypred))
         if self.activation_output == "linear":
-            return np.sum(np.square(y - ypred)) / y.shape[0]
+            lf = np.sum(np.square(y - ypred)) / int(y.shape[0])
+            lf = lf.round(4)
+            return lf.item()
         if self.activation_output == "softmax":
             return np.sum(np.array([-np.sum(y*np.log(ypred))])).round(4)
         
@@ -197,34 +200,31 @@ class MLP:
         self.t = 0
         if self.batch_size != None:
             number_of_batches = int(self.X.shape[0] / self.batch_size)
+            if self.X.shape[0] % self.batch_size != 0:
+                number_of_batches += 1
         else:
             self.batch_size = cp.deepcopy(self.X.shape[0])
-            number_of_batches = int(self.X.shape[0] / self.batch_size)
+            number_of_batches = 1
         for i in range(self.epochs):
-            delta_w = [np.zeros_like(w) for w in self.weights]
-            delta_b = [np.zeros_like(b) for b in self.bias]
             if i == 0:
                 self.X = self.X.sample(frac=1, random_state=self.random_state)
                 self.y = self.y.sample(frac=1, random_state=self.random_state)
             else:
                 self.X = self.X.sample(frac=1, random_state=(self.random_state + i))
                 self.y = self.y.sample(frac=1, random_state=(self.random_state + i))
-            for n in range(0, number_of_batches+1):
+            for n in range(0, number_of_batches):
                 delta_w = [np.zeros_like(w) for w in self.weights]
                 delta_b = [np.zeros_like(b) for b in self.bias]
-                if n == number_of_batches:
-                    if self.X.shape[0] % self.batch_size != 0:
-                        for b in range(0, self.X.shape[0] % self.batch_size):
-                            z, a = self.feedforward(np.array([self.X.iloc[n * self.batch_size + b, :].values]))
-                            delta_w_temp, delta_b_temp = self.backpropagation(z, a, np.array([self.y.iloc[n * self.batch_size + b, :].values]), np.array([self.X.iloc[n * self.batch_size + b, :].values]))
-                            for r in range(len(delta_w)):
-                                delta_w[r] = delta_w[r] + delta_w_temp[r]
-                                delta_b[r] = delta_b[r] + delta_b_temp[r]
-                        for l in range(len(delta_w)):
-                            delta_w[l] /= (self.X.shape[0] % self.batch_size)
-                            delta_b[l] /= (self.X.shape[0] % self.batch_size)
-                    else:
-                        pass
+                if (n == number_of_batches-1) and (self.X.shape[0] % self.batch_size != 0):
+                    for b in range(0, self.X.shape[0] % self.batch_size):
+                        z, a = self.feedforward(np.array([self.X.iloc[n * self.batch_size + b, :].values]))
+                        delta_w_temp, delta_b_temp = self.backpropagation(z, a, np.array([self.y.iloc[n * self.batch_size + b, :].values]), np.array([self.X.iloc[n * self.batch_size + b, :].values]))
+                        for r in range(len(delta_w)):
+                            delta_w[r] = delta_w[r] + delta_w_temp[r]
+                            delta_b[r] = delta_b[r] + delta_b_temp[r]
+                    for l in range(len(delta_w)):
+                        delta_w[l] /= (self.X.shape[0] % self.batch_size)
+                        delta_b[l] /= (self.X.shape[0] % self.batch_size)
                 else:
                     for b in range(0, self.batch_size):
                         z, a = self.feedforward(np.array([self.X.iloc[n * self.batch_size + b, :].values]))
@@ -239,8 +239,8 @@ class MLP:
                     if self.optimizer is None:
                         self.weights[k] += self.learning_rate * delta_w[k] + self.momentum * self.prev_delta_w[k]
                         self.bias[k] += self.learning_rate * delta_b[k] + self.momentum * self.prev_delta_b[k]
-                        self.prev_delta_w[k] = self.learning_rate * delta_w[k] + self.momentum * self.prev_delta_w[k]
-                        self.prev_delta_b[k] = self.learning_rate * delta_b[k] + self.momentum * self.prev_delta_b[k]
+                        self.prev_delta_w[k] = cp.deepcopy(self.learning_rate * delta_w[k] + self.momentum * self.prev_delta_w[k])
+                        self.prev_delta_b[k] = cp.deepcopy(self.learning_rate * delta_b[k] + self.momentum * self.prev_delta_b[k])
                     elif self.optimizer == "rmsprop":
                         self.rmsprop_w[k] = self.beta * self.rmsprop_w[k] + (1 - self.beta) * delta_w[k] ** 2
                         self.rmsprop_b[k] = self.beta * self.rmsprop_b[k] + (1 - self.beta) * delta_b[k] ** 2
@@ -258,9 +258,11 @@ class MLP:
                         adam_v_b_hat = self.adam_v_b[k] / (1 - self.beta2_adam ** self.t)
                         self.weights[k] += self.learning_rate * adam_m_w_hat / (np.sqrt(adam_v_w_hat) + self.epsilon)
                         self.bias[k] += self.learning_rate * adam_m_b_hat / (np.sqrt(adam_v_b_hat) + self.epsilon)
-            loss_train = self.loss_function(self.y, self.predict(self.X))
+            preds_train = self.predict(self.X)
+            loss_train = self.loss_function(self.y, preds_train)
             if self.cv_X is not None:
-                loss_val = self.loss_function(self.cv_y, self.predict(self.cv_X))
+                preds_val = self.predict(self.cv_X)
+                loss_val = self.loss_function(self.cv_y, preds_val)
             if self.min_cost_function_train is None or self.min_cost_function_train > loss_train:
                 self.min_cost_function_train = loss_train
             if self.cv_X is not None and (self.min_cost_function_val is None or self.min_cost_function_val > loss_val):
@@ -273,47 +275,50 @@ class MLP:
             if (i+1) % self.print_evey_n_epoch == 0 or i == 0:
                 if self.cv_X is None:
                     if self.activation_output == "linear":
-                        print(f"=== Epoch: {i + 1:^7} === Train MSE: {loss_train:^14} === Min: {self.min_cost_function_train:^14}")
+                        print(f"=== Epoch: {i + 1:^7} === Train MSE: {loss_train:^14} === Min: {self.min_cost_function_train:^14} ===")
                     else:
-                        print(f"=== Epoch: {i + 1:^7} === Train CrossEntropy: {loss_train:^14} === Min: {self.min_cost_function_train:^14}")
+                        preds_train = pd.DataFrame(preds_train).idxmax(axis=1)
+                        f1_train = f1_score(pd.DataFrame(self.y).idxmax(axis=1), preds_train, average="macro").round(4)
+                        print(f"=== Epoch: {i + 1:^7} === Train CrossEntropy: {loss_train:^14} Min: {self.min_cost_function_train:^14} F1: {f1_train:^7} ===")
                 else:
                     if self.activation_output == "linear":
                         print(f"=== Epoch: {i + 1:^7} === Train MSE: {loss_train:^14} === Min: {self.min_cost_function_train:^14} === Val MSE: {loss_val:^14} === Min: {self.min_cost_function_val:^14} ===")
                     else:
-                        print(f"=== Epoch: {i + 1:^7} === Train CrossEntropy: {loss_train:^14} === Min: {self.min_cost_function_train:^14} === Val CrossEntropy: {loss_val:^14} === Min: {self.min_cost_function_val:^14} ===")
+                        preds_train = pd.DataFrame(preds_train).idxmax(axis=1)
+                        preds_val = pd.DataFrame(preds_val).idxmax(axis=1)
+                        f1_train = f1_score(pd.DataFrame(self.y).idxmax(axis=1), preds_train, average="macro").round(4)
+                        f1_val = f1_score(pd.DataFrame(self.cv_y).idxmax(axis=1), preds_val, average="macro").round(4)
+                        print(f"=== Epoch: {i + 1:^7} === Train CrossEntropy: {loss_train:^14} Min: {self.min_cost_function_train:^14} F1: {f1_train:^7} === Val CrossEntropy: {loss_val:^14} Min: {self.min_cost_function_val:^14} F1: {f1_val:^7} ===")
                 
     
     def continue_fit(self, epochs):
         if self.batch_size != None:
             number_of_batches = int(self.X.shape[0] / self.batch_size)
+            if self.X.shape[0] % self.batch_size != 0:
+                number_of_batches += 1
         else:
             self.batch_size = cp.deepcopy(self.X.shape[0])
-            number_of_batches = int(self.X.shape[0] / self.batch_size)
+            number_of_batches = 1
         for i in range(epochs):
-            delta_w = [np.zeros_like(w) for w in self.weights]
-            delta_b = [np.zeros_like(b) for b in self.bias]
             if i == 0:
                 self.X = self.X.sample(frac=1, random_state=self.random_state)
                 self.y = self.y.sample(frac=1, random_state=self.random_state)
             else:
                 self.X = self.X.sample(frac=1, random_state=(self.random_state + i))
                 self.y = self.y.sample(frac=1, random_state=(self.random_state + i))
-            for n in range(0, number_of_batches+1):
+            for n in range(0, number_of_batches):
                 delta_w = [np.zeros_like(w) for w in self.weights]
                 delta_b = [np.zeros_like(b) for b in self.bias]
-                if n == number_of_batches:
-                    if self.X.shape[0] % self.batch_size != 0:
-                        for b in range(0, self.X.shape[0] % self.batch_size):
-                            z, a = self.feedforward(np.array([self.X.iloc[n * self.batch_size + b, :].values]))
-                            delta_w_temp, delta_b_temp = self.backpropagation(z, a, np.array([self.y.iloc[n * self.batch_size + b, :].values]), np.array([self.X.iloc[n * self.batch_size + b, :].values]))
-                            for r in range(len(delta_w)):
-                                delta_w[r] = delta_w[r] + delta_w_temp[r]
-                                delta_b[r] = delta_b[r] + delta_b_temp[r]
-                        for l in range(len(delta_w)):
-                            delta_w[l] /= (self.X.shape[0] % self.batch_size)
-                            delta_b[l] /= (self.X.shape[0] % self.batch_size)
-                    else:
-                        pass
+                if (n == number_of_batches-1) and (self.X.shape[0] % self.batch_size != 0):
+                    for b in range(0, self.X.shape[0] % self.batch_size):
+                        z, a = self.feedforward(np.array([self.X.iloc[n * self.batch_size + b, :].values]))
+                        delta_w_temp, delta_b_temp = self.backpropagation(z, a, np.array([self.y.iloc[n * self.batch_size + b, :].values]), np.array([self.X.iloc[n * self.batch_size + b, :].values]))
+                        for r in range(len(delta_w)):
+                            delta_w[r] = delta_w[r] + delta_w_temp[r]
+                            delta_b[r] = delta_b[r] + delta_b_temp[r]
+                    for l in range(len(delta_w)):
+                        delta_w[l] /= (self.X.shape[0] % self.batch_size)
+                        delta_b[l] /= (self.X.shape[0] % self.batch_size)
                 else:
                     for b in range(0, self.batch_size):
                         z, a = self.feedforward(np.array([self.X.iloc[n * self.batch_size + b, :].values]))
@@ -328,8 +333,8 @@ class MLP:
                     if self.optimizer is None:
                         self.weights[k] += self.learning_rate * delta_w[k] + self.momentum * self.prev_delta_w[k]
                         self.bias[k] += self.learning_rate * delta_b[k] + self.momentum * self.prev_delta_b[k]
-                        self.prev_delta_w[k] = self.learning_rate * delta_w[k] + self.momentum * self.prev_delta_w[k]
-                        self.prev_delta_b[k] = self.learning_rate * delta_b[k] + self.momentum * self.prev_delta_b[k]
+                        self.prev_delta_w[k] = cp.deepcopy(self.learning_rate * delta_w[k] + self.momentum * self.prev_delta_w[k])
+                        self.prev_delta_b[k] = cp.deepcopy(self.learning_rate * delta_b[k] + self.momentum * self.prev_delta_b[k])
                     elif self.optimizer == "rmsprop":
                         self.rmsprop_w[k] = self.beta * self.rmsprop_w[k] + (1 - self.beta) * delta_w[k] ** 2
                         self.rmsprop_b[k] = self.beta * self.rmsprop_b[k] + (1 - self.beta) * delta_b[k] ** 2
@@ -347,9 +352,11 @@ class MLP:
                         adam_v_b_hat = self.adam_v_b[k] / (1 - self.beta2_adam ** self.t)
                         self.weights[k] += self.learning_rate * adam_m_w_hat / (np.sqrt(adam_v_w_hat) + self.epsilon)
                         self.bias[k] += self.learning_rate * adam_m_b_hat / (np.sqrt(adam_v_b_hat) + self.epsilon)
-            loss_train = self.loss_function(self.y, self.predict(self.X))
+            preds_train = self.predict(self.X)
+            loss_train = self.loss_function(self.y, preds_train)
             if self.cv_X is not None:
-                loss_val = self.loss_function(self.cv_y, self.predict(self.cv_X))
+                preds_val = self.predict(self.cv_X)
+                loss_val = self.loss_function(self.cv_y, preds_val)
             if self.min_cost_function_train is None or self.min_cost_function_train > loss_train:
                 self.min_cost_function_train = loss_train
             if self.cv_X is not None and (self.min_cost_function_val is None or self.min_cost_function_val > loss_val):
@@ -362,14 +369,20 @@ class MLP:
             if (i+1) % self.print_evey_n_epoch == 0 or i == 0:
                 if self.cv_X is None:
                     if self.activation_output == "linear":
-                        print(f"=== Epoch: {i + 1:^7} === Train MSE: {loss_train:^14} === Min: {self.min_cost_function_train:^14}")
+                        print(f"=== Epoch: {i + 1:^7} === Train MSE: {loss_train:^14} === Min: {self.min_cost_function_train:^14} ===")
                     else:
-                        print(f"=== Epoch: {i + 1:^7} === Train CrossEntropy: {loss_train:^14} === Min: {self.min_cost_function_train:^14}")
+                        preds_train = pd.DataFrame(preds_train).idxmax(axis=1)
+                        f1_train = f1_score(pd.DataFrame(self.y).idxmax(axis=1), preds_train, average="macro").round(4)
+                        print(f"=== Epoch: {i + 1:^7} === Train CrossEntropy: {loss_train:^14} Min: {self.min_cost_function_train:^14} F1: {f1_train:^7} ===")
                 else:
                     if self.activation_output == "linear":
                         print(f"=== Epoch: {i + 1:^7} === Train MSE: {loss_train:^14} === Min: {self.min_cost_function_train:^14} === Val MSE: {loss_val:^14} === Min: {self.min_cost_function_val:^14} ===")
                     else:
-                        print(f"=== Epoch: {i + 1:^7} === Train CrossEntropy: {loss_train:^14} === Min: {self.min_cost_function_train:^14} === Val CrossEntropy: {loss_val:^14} === Min: {self.min_cost_function_val:^14} ===")
+                        preds_train = pd.DataFrame(preds_train).idxmax(axis=1)
+                        preds_val = pd.DataFrame(preds_val).idxmax(axis=1)
+                        f1_train = f1_score(pd.DataFrame(self.y).idxmax(axis=1), preds_train, average="macro").round(4)
+                        f1_val = f1_score(pd.DataFrame(self.cv_y).idxmax(axis=1), preds_val, average="macro").round(4)
+                        print(f"=== Epoch: {i + 1:^7} === Train CrossEntropy: {loss_train:^14} Min: {self.min_cost_function_train:^14} F1: {f1_train:^7} === Val CrossEntropy: {loss_val:^14} Min: {self.min_cost_function_val:^14} F1: {f1_val:^7} ===")
 
 
     def predict(self, X):
@@ -425,6 +438,8 @@ class MLP:
                              "random_w_max": self.random_w_max,
                              "initial_weights": self.initial_weights()[0],
                              "initial_bias": self.initial_weights()[1]}
+    
+
     
 
     
