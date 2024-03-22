@@ -12,7 +12,8 @@ class MLP:
                   weights=[], bias=[], activation_output="linear", random_w_min = -1, random_w_max = 1,
                   cv_X = None, cv_y = None, print_evey_n_epoch = 100, momentum = 0,
                     epsilon = 1e-8, beta = 0.9, batch_size = None, optimizer = None,
-                    beta1_adam =0.9, beta2_adam = 0.999, cost_function_value = None):
+                    beta1_adam =0.9, beta2_adam = 0.999, save_best = False,
+                    dropout=[]):
         self.X = pd.DataFrame(X)
         self.y = pd.DataFrame(y)
         self.hidden_layer_sizes = hidden_layer_sizes
@@ -50,9 +51,10 @@ class MLP:
         self.prev_delta_b = None
         self.min_cost_function_train = None
         self.min_cost_function_val = None
-        self.cost_function_value = cp.deepcopy(cost_function_value)
+        self.save_best = cp.deepcopy(save_best)
         self.best_weights = None
         self.best_bias = None
+        self.dropout = cp.deepcopy(dropout)
         
 
     def activation_function(self, x):
@@ -124,7 +126,7 @@ class MLP:
         n = y.iloc[:,0].max() + 1
         return np.eye(n)[y]
 
-    def feedforward(self, X):
+    def feedforward(self, X, predict=False):
         z = []
         a = []
         for i in range(len(self.weights)):
@@ -137,6 +139,25 @@ class MLP:
             else:
                 z.append(np.dot(a[i-1], self.weights[i]) + self.bias[i])
                 a.append(self.activation_function(z[i]))
+        if len(self.dropout) != 0 and predict == False:
+            dropout_count = []
+            for i in range(len(a)-1):
+                temp_count = len(a[i].flatten())
+                dropout_count.append(temp_count)
+
+            dropout_factor = [np.ones_like(x).flatten() for x in a[:-1]]
+            for layer in range(len(a)-1):
+                limit = int(self.dropout[layer] * dropout_count[layer])
+                count = 0
+                for neuron in range(len(a[layer].flatten())):
+                        if count == limit:
+                            break
+                        else:
+                            dropout_factor[layer][neuron] = 0
+                            count += 1
+                np.random.shuffle(dropout_factor[layer])
+                dropout_factor[layer] = dropout_factor[layer].reshape(a[layer].shape)
+                a[layer] = a[layer] * dropout_factor[layer]
         return z, a
     
     def backpropagation(self, z, a, y, x):
@@ -259,36 +280,53 @@ class MLP:
                         self.weights[k] += self.learning_rate * adam_m_w_hat / (np.sqrt(adam_v_w_hat) + self.epsilon)
                         self.bias[k] += self.learning_rate * adam_m_b_hat / (np.sqrt(adam_v_b_hat) + self.epsilon)
             preds_train = self.predict(self.X)
-            loss_train = self.loss_function(self.y, preds_train)
+            if self.activation_output == "sigmoid":
+                loss_train = float(self.loss_function(self.y, preds_train).values[0])
+            else:
+                loss_train = self.loss_function(self.y, preds_train)
             if self.cv_X is not None:
                 preds_val = self.predict(self.cv_X)
                 loss_val = self.loss_function(self.cv_y, preds_val)
             if self.min_cost_function_train is None or self.min_cost_function_train > loss_train:
                 self.min_cost_function_train = loss_train
-            if self.cv_X is not None and (self.min_cost_function_val is None or self.min_cost_function_val > loss_val):
-                self.min_cost_function_val = loss_val
-            if self.cost_function_value is not None:
-                if self.cost_function_value > loss_train:
-                    self.cost_function_value = loss_train
+                if self.save_best is True:
                     self.best_weights = cp.deepcopy(self.weights)
                     self.best_bias = cp.deepcopy(self.bias)
+            if self.cv_X is not None and (self.min_cost_function_val is None or self.min_cost_function_val > loss_val):
+                self.min_cost_function_val = loss_val
             if (i+1) % self.print_evey_n_epoch == 0 or i == 0:
                 if self.cv_X is None:
                     if self.activation_output == "linear":
                         print(f"=== Epoch: {i + 1:^7} === Train MSE: {loss_train:^14} === Min: {self.min_cost_function_train:^14} ===")
-                    else:
+                    elif self.activation_output == "softmax":
                         preds_train = pd.DataFrame(preds_train).idxmax(axis=1)
                         f1_train = f1_score(pd.DataFrame(self.y).idxmax(axis=1), preds_train, average="macro").round(4)
                         print(f"=== Epoch: {i + 1:^7} === Train CrossEntropy: {loss_train:^14} Min: {self.min_cost_function_train:^14} F1: {f1_train:^7} ===")
+                    elif self.activation_output == "sigmoid":
+                        preds_train = pd.DataFrame(preds_train)
+                        preds_train.columns = ["class"]
+                        preds_train["class"] = preds_train["class"].apply(lambda x: 1 if x > 0.5 else 0)
+                        f1_train = f1_score(self.y, preds_train["class"], average="binary").round(4)
+                        print(f"=== Epoch: {i + 1:^7} === Train CrossEntropy: {loss_train:^14.4f} Min: {self.min_cost_function_train:^14.4f} F1: {f1_train:^7} ===")
                 else:
                     if self.activation_output == "linear":
                         print(f"=== Epoch: {i + 1:^7} === Train MSE: {loss_train:^14} === Min: {self.min_cost_function_train:^14} === Val MSE: {loss_val:^14} === Min: {self.min_cost_function_val:^14} ===")
-                    else:
+                    elif self.activation_output == "softmax":
                         preds_train = pd.DataFrame(preds_train).idxmax(axis=1)
                         preds_val = pd.DataFrame(preds_val).idxmax(axis=1)
                         f1_train = f1_score(pd.DataFrame(self.y).idxmax(axis=1), preds_train, average="macro").round(4)
                         f1_val = f1_score(pd.DataFrame(self.cv_y).idxmax(axis=1), preds_val, average="macro").round(4)
                         print(f"=== Epoch: {i + 1:^7} === Train CrossEntropy: {loss_train:^14} Min: {self.min_cost_function_train:^14} F1: {f1_train:^7} === Val CrossEntropy: {loss_val:^14} Min: {self.min_cost_function_val:^14} F1: {f1_val:^7} ===")
+                    elif self.activation_output == "sigmoid":
+                        preds_train = pd.DataFrame(preds_train)
+                        preds_val = pd.DataFrame(preds_val)
+                        preds_train.columns = ["class"]
+                        preds_val.columns = ["class"]
+                        preds_train["class"] = preds_train["class"].apply(lambda x: 1 if x > 0.5 else 0)
+                        preds_val["class"] = preds_val["class"].apply(lambda x: 1 if x > 0.5 else 0)
+                        f1_train = f1_score(self.y, preds_train["class"], average="binary").round(4)
+                        f1_val = f1_score(self.cv_y, preds_val["class"], average="binary").round(4)
+                        print(f"=== Epoch: {i + 1:^7} === Train CrossEntropy: {loss_train:^14.4f} Min: {self.min_cost_function_train:^14.4f} F1: {f1_train:^7} === Val CrossEntropy: {loss_val:^14} Min: {self.min_cost_function_val:^14} F1: {f1_val:^7} ===")
                 
     
     def continue_fit(self, epochs):
@@ -353,40 +391,46 @@ class MLP:
                         self.weights[k] += self.learning_rate * adam_m_w_hat / (np.sqrt(adam_v_w_hat) + self.epsilon)
                         self.bias[k] += self.learning_rate * adam_m_b_hat / (np.sqrt(adam_v_b_hat) + self.epsilon)
             preds_train = self.predict(self.X)
-            loss_train = self.loss_function(self.y, preds_train)
+            if self.activation_output == "sigmoid":
+                loss_train = float(self.loss_function(self.y, preds_train).values[0])
+            else:
+                loss_train = self.loss_function(self.y, preds_train)
             if self.cv_X is not None:
                 preds_val = self.predict(self.cv_X)
                 loss_val = self.loss_function(self.cv_y, preds_val)
             if self.min_cost_function_train is None or self.min_cost_function_train > loss_train:
+                if self.save_best is True:
+                    self.best_weights = cp.deepcopy(self.weights)
+                    self.best_bias = cp.deepcopy(self.bias)
                 self.min_cost_function_train = loss_train
             if self.cv_X is not None and (self.min_cost_function_val is None or self.min_cost_function_val > loss_val):
                 self.min_cost_function_val = loss_val
-            if self.cost_function_value is not None:
-                if self.cost_function_value > loss_train:
-                    self.cost_function_value = loss_train
-                    self.best_weights = cp.deepcopy(self.weights)
-                    self.best_bias = cp.deepcopy(self.bias)
             if (i+1) % self.print_evey_n_epoch == 0 or i == 0:
                 if self.cv_X is None:
                     if self.activation_output == "linear":
                         print(f"=== Epoch: {i + 1:^7} === Train MSE: {loss_train:^14} === Min: {self.min_cost_function_train:^14} ===")
-                    else:
+                    elif self.activation_output == "softmax":
                         preds_train = pd.DataFrame(preds_train).idxmax(axis=1)
                         f1_train = f1_score(pd.DataFrame(self.y).idxmax(axis=1), preds_train, average="macro").round(4)
                         print(f"=== Epoch: {i + 1:^7} === Train CrossEntropy: {loss_train:^14} Min: {self.min_cost_function_train:^14} F1: {f1_train:^7} ===")
+                    elif self.activation_output == "sigmoid":
+                        preds_train = pd.DataFrame(preds_train)
+                        print(f"=== Epoch: {i + 1:^7} === Train CrossEntropy: {loss_train:^14.4f} Min: {self.min_cost_function_train:^14.4f} ===")
                 else:
                     if self.activation_output == "linear":
                         print(f"=== Epoch: {i + 1:^7} === Train MSE: {loss_train:^14} === Min: {self.min_cost_function_train:^14} === Val MSE: {loss_val:^14} === Min: {self.min_cost_function_val:^14} ===")
-                    else:
+                    elif self.activation_output == "softmax":
                         preds_train = pd.DataFrame(preds_train).idxmax(axis=1)
                         preds_val = pd.DataFrame(preds_val).idxmax(axis=1)
                         f1_train = f1_score(pd.DataFrame(self.y).idxmax(axis=1), preds_train, average="macro").round(4)
                         f1_val = f1_score(pd.DataFrame(self.cv_y).idxmax(axis=1), preds_val, average="macro").round(4)
                         print(f"=== Epoch: {i + 1:^7} === Train CrossEntropy: {loss_train:^14} Min: {self.min_cost_function_train:^14} F1: {f1_train:^7} === Val CrossEntropy: {loss_val:^14} Min: {self.min_cost_function_val:^14} F1: {f1_val:^7} ===")
-
+                    elif self.activation_output == "sigmoid":
+                        preds_train = pd.DataFrame(preds_train)
+                        print(f"=== Epoch: {i + 1:^7} === Train CrossEntropy: {loss_train:^14.4f} Min: {self.min_cost_function_train:^14.4f} ===")
 
     def predict(self, X):
-        z, a = self.feedforward(X)
+        z, a = self.feedforward(X, predict=True)
         return a[-1]
     
     def predict_best(self, X):
